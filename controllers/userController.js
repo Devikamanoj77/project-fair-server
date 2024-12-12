@@ -1,12 +1,71 @@
+const jwt = require('jsonwebtoken')
+const users = require('../models/userModel')
+
 // register
-exports.registerController = (req,res)=>{
+exports.registerController = async (req,res)=>{
     console.log("Inside registerController");
     const {username,email,password} = req.body
     console.log(username,email,password);
     
-    res.status(200).json("Request received!!!")
+    try{
+        const existingUser = await users.findOne({email})
+        if(existingUser){
+            res.status(406).json("User Already Exist..Please Login...!!!")
+        }else{
+            const newUser = new users({
+                username,email,password,github:"",linkedin:"",proflePic:""
+            })
+            await newUser.save()
+            res.status(200).json(newUser)
+        } 
+    }catch(err){
+        res.status(401).json(err)
+    }
 }
 
 // login
+exports.loginController = async (req,res)=>{
+    console.log("Inside loginController");
+    const {email,password} = req.body
+    console.log(email,password);
+    
+    try{
+        const existingUser = await users.findOne({email,password})
+        if(existingUser){
+            // token generate
+            const token = jwt.sign({userId:existingUser._id},process.env.JWTPASSWORD)
+            res.status(200).json({
+                user:existingUser,
+                token
+            })
+        }else{
+            res.status(404).json("Invalid Email/Password")
+        }
+    }catch(err){
+        res.status(401).json(err)
+    }
+}
+
 
 // profile updation
+exports.editUserController = async(req,res)=>{
+    console.log("Inside edit UserController");
+    // get id of user from jwtMiddleware req.userId
+    const userId = req.userId
+    // multer will active  in this route
+    // get data from text req.body file data from req.file
+    const {username,email,password,github,linkedin,profilePic} = req.body
+    const uploadProfileImgFile = req.file?req.file.filename:profilePic
+    // update user
+    try{
+        const updateUser = await users.findByIdAndUpdate({_id:userId},{
+            username,email,password,github,linkedin,proflePic:uploadProfileImgFile
+        },{new:true})
+        await updateUser.save()
+        res.status(200).json(updateUser)
+    }catch(err){
+        res.status(401).json(err)
+        
+    }
+    
+}
